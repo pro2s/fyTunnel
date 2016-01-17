@@ -61,7 +61,7 @@ JINJA_ENVIRONMENT = jinja2.Environment(
     loader=jinja2.FileSystemLoader([os.path.join(os.path.dirname(__file__),"templates"),],encoding='utf-8'),
     extensions=['jinja2.ext.autoescape'])
 
-import * from settings
+from settings import * 
 
 MENU = [
     {
