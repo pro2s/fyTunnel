@@ -1,0 +1,10 @@
+yaf_token  = "c986986cd969c68d9a869ac86d96cd9a6c"
+yaf_id = "c986986cd969c68d9a869ac86d96cd9a6c"
+yaf_pwd = "c986986cd969c68d9a869ac86d96cd9a6c"
+
+F_API_KEY =  'c986986cd969c68d9a869ac86d96cd9a6c'
+F_API_SECRET = 'c986986cd969c6'
+F_TOKEN = 'c986986cd969c68d9a869ac86d96cd9a6c'
+F_TOKEN_SECRET = 'c986986cd969c6'
+
+flikr_token = {u'access_token_key': u'c986986cd969c68d-9a869ac86d96cd9a6c', u'api_secret': u'c986986cd969c68d', u'api_key': u'c986986cd969c68d9a869ac86d96cd9a6c', u'access_token_secret': u'c986986cd969c68d'}
