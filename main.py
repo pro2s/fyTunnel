@@ -221,7 +221,7 @@ class Sync(BaseHandler):
                     a = Album.get_by_id(item.id)
                     if a is not None and not a.sync:
                         pages = (item.photos + 250) // 500
-                        if page == 0: page = 1 
+                        if pages == 0: pages = 1 
                         for page in range(pages):
                             for p in item.getPhotos(page = page + 1):
                                 # p.id, p.title, album.id, album.yaf_id
