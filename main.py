@@ -23,6 +23,8 @@ from google.appengine.api import urlfetch
 from google.appengine.api import memcache
 from google.appengine.ext import ndb
 from google.appengine.api import taskqueue
+from settings import * 
+
 
 urlfetch.set_default_fetch_deadline(10)
 
@@ -35,6 +37,29 @@ FYT_SLAVES = [
 ]
 
 
+class Settings(ndb.Model):
+    name = ndb.StringProperty()
+    value = ndb.StringProperty()
+    
+    @staticmethod
+    def get(name):
+        retval = Settings.get_by_id(name)
+        if not retval:
+            return None
+        return retval.value
+    
+    @staticmethod
+    def set(name, value):
+        retval = Settings.get_by_id(name)
+        if not retval:
+            retval = Settings(id  =  name)
+            retval.name = name
+            retval.value = value
+            retval.put()
+        else:
+            retval.value = value
+            retval.put()
+            
 class Slave(ndb.Model):
     url = ndb.StringProperty()
     order = ndb.IntegerProperty()
@@ -61,7 +86,7 @@ JINJA_ENVIRONMENT = jinja2.Environment(
     loader=jinja2.FileSystemLoader([os.path.join(os.path.dirname(__file__),"templates"),],encoding='utf-8'),
     extensions=['jinja2.ext.autoescape'])
 
-from settings import * 
+
 
 MENU = [
     {
@@ -251,16 +276,21 @@ class GetResult(BaseHandler):
         
 class GetVerifier(BaseHandler):
     def get(self):	        
-        flickr_auth = self.session.get('flickr_auth')
-        logging.info(flickr_auth)
-        if flickr_auth is not None:
-            verifier = self.request.get('oauth_verifier')
-            a = flickr_api.auth.AuthHandler.fromdict(flickr_auth)
-            a.set_verifier(verifier)
-            self.session['flickr_auth'] = a.todict(include_api_keys=True)
-        path = self.request.url
-        self.redirect(path)
+        oauth_verifier = self.request.get('oauth_verifier')
+        oauth_token = self.session.get('oauth_token')
+        oauth_token_secret = self.session.get('oauth_token_secret')
+        f = FlickrAPI(api_key=F_API_KEY,
+              api_secret=F_API_SECRET,
+              oauth_token=oauth_token,
+              oauth_token_secret=oauth_token_secret)
 
+        authorized_tokens = f.get_auth_tokens(oauth_verifier)
+
+        Settings.set('F_TOKEN', authorized_tokens['oauth_token'])
+        
+        Settings.set('F_TOKEN_SECRET', authorized_tokens['oauth_token_secret'])
+        self.redirect('/')
+        
 	
 class MainHandler(BaseHandler):
     def get(self):
@@ -269,16 +299,37 @@ class MainHandler(BaseHandler):
         albums = {}
         y_albums = {}
         
-        flickr_auth = flikr_token
         auth = False
-        if flickr_auth is None:
-            a = flickr_api.auth.AuthHandler(callback = "http://photoo-1006.appspot.com/get_verifier/") #creates the AuthHandler object
-            perms = "read" # set the required permissions
-            url = a.get_authorization_url(perms)
-            self.session['flickr_auth'] = a.todict(include_api_keys=True)
-        else:
-            auth = True
+        
+        F_TOKEN = Settings.get('F_TOKEN')
+        F_TOKEN_SECRET = Settings.get('F_TOKEN_SECRET')
+        if F_TOKEN and F_TOKEN_SECRET:
+            f = FlickrAPI(api_key = F_API_KEY,
+                api_secret= F_API_SECRET,
+                oauth_token= F_TOKEN,
+                oauth_token_secret= F_TOKEN_SECRET)
+            try:
+                result = f.get('flickr.test.null')
+                if result['stat'] == 'ok':
+                    auth = True
+            except:
+                auth = False
+        
+        if  not auth:
+            f = FlickrAPI(api_key=F_API_KEY,
+                api_secret=F_API_SECRET,
+                callback_url='http://fytunnel.appspot.com/callback/')
+                #callback_url='http://localhost:10080/callback/')
+            auth_props = f.get_authentication_tokens(perms = 'read')
+            auth_url = auth_props['auth_url']
+
+            #Store this token in a session or something for later use in the next step.
+            self.session['oauth_token'] =  auth_props['oauth_token']
+            self.session['oauth_token_secret'] = auth_props['oauth_token_secret']
+            self.redirect(auth_url)
             
+        else:
+        
             f = FlickrAPI(api_key = F_API_KEY,
                 api_secret= F_API_SECRET,
                 oauth_token= F_TOKEN,
@@ -298,11 +349,12 @@ class MainHandler(BaseHandler):
                     albums[id]['description'] = item['description']['_content']
             
             
-            
+            '''
             a = flickr_api.auth.AuthHandler.fromdict(flickr_auth)
             flickr_api.set_auth_handler(a)
             u = flickr_api.test.login()
             ps = u.getPhotosets()
+            '''
             
             for id, item in albums.iteritems():
                 a = Album.get_by_id(id)
@@ -365,7 +417,7 @@ config['webapp2_extras.sessions'] = {
 }        
 app = webapp2.WSGIApplication([
     ('/', MainHandler),
-    ('/get_verifier/',GetVerifier),
+    ('/callback/',GetVerifier),
     ('/clear/',Clear),
     ('/clean/',Clean),
     ('/sync/',Sync),
